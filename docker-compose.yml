@@ -1,0 +1,12 @@
+services:
+  postgres:
+    container_name: pg_avatar_calendar
+    image: postgres:16.4
+    environment:
+      POSTGRES_USER: aiCalendarApp
+      POSTGRES_PASSWORD: KanSFD_fj*
+      PGDATA: /data/postgres
+    volumes:
+      - ./postgres-data:/data/postgres
+    ports:
+      - "5432:5432"
