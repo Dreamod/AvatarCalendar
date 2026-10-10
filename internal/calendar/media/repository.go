@@ -2,40 +2,56 @@ package media
 
 import (
 	"aiCalendarApp/pkg/db"
-	"fmt"
+	"context"
 
 	"gorm.io/gorm/clause"
 )
 
-type MediaRepository struct {
+type Repository struct {
 	DataBase *db.Db
 }
 
-func NewMediaRepository(dataBase *db.Db) *MediaRepository {
-	return &MediaRepository{
+func NewRepository(dataBase *db.Db) *Repository {
+	return &Repository{
 		DataBase: dataBase,
 	}
 }
 
-func (repo *MediaRepository) Create(media *Media) (*Media, error) {
-	result := repo.DataBase.DB.Create(media)
+func (repo *Repository) Create(ctx context.Context, media *Media) (*Media, error) {
+	result := repo.DataBase.DB.WithContext(ctx).Create(media)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 	return media, nil
 }
 
-func (repo *MediaRepository) GetById(id string) (*Media, error) {
+// GetByDayId получает медиа файлы по ID дня
+func (repo *Repository) GetByDayId(ctx context.Context, dayId string) []Media {
+	var medias []Media
+	repo.DataBase.WithContext(ctx).
+		Table("media").
+		Where("day_id = ?", dayId).
+		Where("deleted_at IS NULL").
+		Scan(&medias)
+	return medias
+}
+
+// GetByDayId2Type получает медиа файл по ID дня и типу
+func (repo *Repository) GetByDayId2Type(ctx context.Context, dayId string, mediaType string) (*Media, error) {
 	var media Media
-	result := repo.DataBase.DB.First(&media, "id = ?", id)
-	fmt.Println(result)
+	result := repo.DataBase.WithContext(ctx).
+		Table("media").
+		Where("day_id = ?", dayId).
+		Where("type = ?", mediaType).
+		Where("deleted_at IS NULL").
+		First(&media)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 	return &media, nil
 }
 
-func (repo *MediaRepository) Update(media *Media) (*Media, error) {
+func (repo *Repository) Update(ctx context.Context, media *Media) (*Media, error) {
 	result := repo.DataBase.DB.Clauses(clause.Returning{}).Updates(media)
 	if result.Error != nil {
 		return nil, result.Error

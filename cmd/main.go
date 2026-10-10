@@ -4,6 +4,7 @@ import (
 	"aiCalendarApp/configs"
 	"aiCalendarApp/internal/auth"
 	"aiCalendarApp/internal/calendar/day"
+	"aiCalendarApp/internal/calendar/media"
 	"aiCalendarApp/pkg/db"
 	"fmt"
 	"net/http"
@@ -20,15 +21,24 @@ func main() {
 	router := http.NewServeMux()
 
 	//Repositories
-	dayRepository := day.NewDayRepository(db)
+	dayRepository := day.NewRepository(db)
+	mediaRepository := media.NewRepository(db)
+
+	//Services
+	dayService := day.NewService(*dayRepository)
+	mediaService := media.NewService(*mediaRepository)
 
 	// handlers
 	auth.NewAuthHandler(router, auth.AuthHandlerDeps{
 		Config: conf,
 	})
-	day.NewDayHandler(router, day.DayHandlerDeps{
-		Config:        conf,
-		DayRepository: dayRepository,
+	day.NewHandler(router, day.HandlerDeps{
+		Config:  conf,
+		Service: dayService,
+	})
+	media.NewHandler(router, media.HandlerDeps{
+		Config:  conf,
+		Service: mediaService,
 	})
 
 	// server

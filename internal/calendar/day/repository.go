@@ -2,41 +2,43 @@ package day
 
 import (
 	"aiCalendarApp/pkg/db"
-	"fmt"
+	"context"
 
 	"gorm.io/gorm/clause"
 )
 
-type DayRepository struct {
+type Repository struct {
 	DataBase *db.Db
 }
 
-func NewDayRepository(dataBase *db.Db) *DayRepository {
-	return &DayRepository{
+func NewRepository(dataBase *db.Db) *Repository {
+	return &Repository{
 		DataBase: dataBase,
 	}
 }
 
-func (repo *DayRepository) Create(day *Day) (*Day, error) {
-	result := repo.DataBase.DB.Create(day)
+// Create создает запись в БД
+func (repo *Repository) Create(ctx context.Context, day *Day) (*Day, error) {
+	result := repo.DataBase.DB.WithContext(ctx).Create(day)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 	return day, nil
 }
 
-func (repo *DayRepository) GetById(id string) (*Day, error) {
+// GetById получает запись по ID
+func (repo *Repository) GetById(ctx context.Context, id string) (*Day, error) {
 	var day Day
-	result := repo.DataBase.DB.First(&day, "id = ?", id)
-	fmt.Println(result)
+	result := repo.DataBase.DB.WithContext(ctx).First(&day, "id = ?", id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 	return &day, nil
 }
 
-func (repo *DayRepository) Update(day *Day) (*Day, error) {
-	result := repo.DataBase.DB.Clauses(clause.Returning{}).Updates(day)
+// Update обновляет запись в БД
+func (repo *Repository) Update(ctx context.Context, day *Day) (*Day, error) {
+	result := repo.DataBase.DB.WithContext(ctx).Clauses(clause.Returning{}).Updates(day)
 	if result.Error != nil {
 		return nil, result.Error
 	}

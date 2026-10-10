@@ -5,71 +5,73 @@ import (
 	"aiCalendarApp/pkg/request"
 	"aiCalendarApp/pkg/response"
 	"net/http"
-	"time"
 )
 
-type DayHandler struct {
+type Handler struct {
 	*configs.Config
-	DayRepository *DayRepository
+	Service Service
 }
 
-type DayHandlerDeps struct {
+type HandlerDeps struct {
 	*configs.Config
-	DayRepository *DayRepository
+	Service Service
 }
 
-func NewDayHandler(router *http.ServeMux, deps DayHandlerDeps) {
-	handler := &DayHandler{
-		Config:        deps.Config,
-		DayRepository: deps.DayRepository,
+func NewHandler(router *http.ServeMux, deps HandlerDeps) {
+	handler := &Handler{
+		Config:  deps.Config,
+		Service: deps.Service,
 	}
-	router.HandleFunc("POST /calendar", handler.Create())
+	router.HandleFunc("POST /api/day", handler.Create())
 	//router.HandleFunc("GET /{date}", handler.GoTo())
 	//router.HandleFunc("PATCH /calendar/{date}", handler.Update())
 }
 
-func (handler *DayHandler) Create() http.HandlerFunc {
+func (handler *Handler) Create() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// получим данные из тела запроса
+		ctx := r.Context()
+
 		body, err := request.HandleBody[CreateRequest](&w, r)
 		if err != nil {
+			// ошибка декодирования — сразу отвечаем
+			response.Json(w, CreateResponse{
+				Success: false,
+				Errors:  []string{"ошибка чтения тела запроса"},
+			}, http.StatusBadRequest)
 			return
 		}
-		// подготовка ответа
+
 		output := CreateResponse{
 			Success: false,
 			Data:    "",
 			Errors:  make([]string, 0),
 		}
-		// конвертируем строку в дату
-		date, err := time.Parse("02.01.2006", body.Date)
+
+		// выполняем бизнес логику
+		createdDay, err := handler.Service.CreateDay(ctx, body)
 		if err != nil {
-			output.Errors = append(output.Errors, "date: некорректный формат даты")
-			response.Json(w, output, http.StatusBadRequest)
-			return
+			switch err {
+			case ErrDayAlreadyExists:
+				output.Errors = append(output.Errors, "на указанную дату уже есть запись в календаре")
+				response.Json(w, output, http.StatusConflict) // 409
+				return
+			case ErrInvalidDate:
+				output.Errors = append(output.Errors, "date: некорректный формат даты")
+				response.Json(w, output, http.StatusBadRequest) // 400
+				return
+			default:
+				// любая другая ошибка (в т.ч. БД)
+				output.Errors = append(output.Errors, "внутренняя ошибка сервиса")
+				response.Json(w, output, http.StatusInternalServerError) // 500
+				return
+			}
 		}
-		// создаем день
-		calendarDay := NewDay(date, body.Title, body.Description)
-		dayId := calendarDay.Id
-		// существует ли день
-		existedDay, _ := handler.DayRepository.GetById(dayId)
-		if existedDay != nil {
-			output.Errors = append(output.Errors, "на указанную дату уже есть запись в календаре")
-			response.Json(w, output, http.StatusBadRequest)
-			return
-		}
-		// создадим день
-		createdCalendarDay, err := handler.DayRepository.Create(calendarDay)
-		if err != nil {
-			output.Errors = append(output.Errors, "при создании записи дня произошла ошибка")
-			response.Json(w, output, http.StatusBadRequest)
-			return
-		}
-		//пишем успешный ответ
+
+		// формируем успешный ответ
 		output = CreateResponse{
 			Success: true,
 			Data: map[string]string{
-				"id": createdCalendarDay.Id,
+				"id": createdDay.Id,
 			},
 			Errors: nil,
 		}

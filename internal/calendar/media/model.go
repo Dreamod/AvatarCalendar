@@ -10,7 +10,8 @@ import (
 
 type Media struct {
 	gorm.Model
-	Src     string `json:"date"`
+	Id      int    `json:"id"`
+	Src     string `json:"src"`
 	Preview string `json:"preview"`
 	Type    Type   `json:"type:status"`
 	DayId   string `json:"day_id" gorm:"index"`
@@ -32,11 +33,11 @@ func (s Type) Value() (driver.Value, error) {
 	return string(s), nil
 }
 
-func NewMedia(date time.Time, src string, mediaType Type) *Media {
+func NewMedia(date time.Time, src string, preview string, mediaType Type) *Media {
 	media := &Media{
 		Src:     src,
+		Preview: preview,
 		Type:    mediaType,
-		Preview: src,
 	}
 	media.GenerateDayId(date)
 	return media
