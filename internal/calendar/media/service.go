@@ -14,6 +14,7 @@ import (
 
 type Service interface {
 	CreateImage(ctx context.Context, input CreateMediaInput, file io.Reader) (*CreateMediaOutput, error)
+	CreateVideo(ctx context.Context, input CreateMediaInput, file io.Reader) (*CreateMediaOutput, error)
 }
 
 var (
@@ -43,13 +44,15 @@ func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
+// CreateImage логика создания изображения - сохраняет исходник, создает превью, записывает данные в БД
 func (service *service) CreateImage(ctx context.Context, input CreateMediaInput, file io.Reader) (*CreateMediaOutput, error) {
+	const mediaType = "image"
 
 	// запишем дату в переменную
 	date := input.Date
 
 	// определяем папку загрузки исходника
-	uploadSrcDir := MakeUploadDirname(date, "image", "full")
+	uploadSrcDir := MakeUploadDirname(date, mediaType, "full")
 
 	// создаем промежуточные директории для исходника
 	if err := os.MkdirAll(uploadSrcDir, 0o755); err != nil {
@@ -69,7 +72,7 @@ func (service *service) CreateImage(ctx context.Context, input CreateMediaInput,
 	}
 
 	// определяем папку загрузки превью
-	uploadPreviewDir := MakeUploadDirname(date, "image", "preview")
+	uploadPreviewDir := MakeUploadDirname(date, mediaType, "preview")
 
 	// создаем промежуточные директории для превью
 	if err := os.MkdirAll(uploadPreviewDir, 0o755); err != nil {
@@ -101,11 +104,72 @@ func (service *service) CreateImage(ctx context.Context, input CreateMediaInput,
 	}
 
 	// запись данных медиа в БД
-	calendarMedia := NewMedia(date, fullSrcPath, fullPreviewPath, Type(Image))
+	calendarMedia := NewMedia(date, fullSrcPath, fullPreviewPath, mediaType)
 	dayId := calendarMedia.DayId
 
 	// если запись существует, то будем ее обновлять
-	existedMedia, _ := service.repo.GetByDayId2Type(ctx, dayId, "image")
+	existedMedia, _ := service.repo.GetByDayId2Type(ctx, dayId, mediaType)
+	var resultMediaId int
+	if existedMedia == nil {
+		// запись в БД
+		resultCalendarMedia, err := service.repo.Create(ctx, calendarMedia)
+		if err != nil {
+			return nil, ErrMediaCreateFailed
+		}
+		resultMediaId = resultCalendarMedia.Id
+	} else {
+		resultMediaId = existedMedia.Id
+	}
+
+	return &CreateMediaOutput{resultMediaId}, nil
+}
+
+// CreateVideo логика создания видео - сохраняет исходник, создает превью, записывает данные в БД
+func (service *service) CreateVideo(ctx context.Context, input CreateMediaInput, file io.Reader) (*CreateMediaOutput, error) {
+	const mediaType = "video"
+
+	// запишем дату в переменную
+	date := input.Date
+
+	// определяем папку загрузки исходника
+	uploadSrcDir := MakeUploadDirname(date, mediaType, "full")
+
+	// создаем промежуточные директории для исходника
+	if err := os.MkdirAll(uploadSrcDir, 0o755); err != nil {
+		return nil, ErrCreateUploadSrcDir
+	}
+
+	// определяем имя файла
+	fileName := MakeFileName(date, input.FileExt)
+
+	// определяем полный путь сохранения исходного файла
+	fullSrcPath := filepath.Join(uploadSrcDir, fileName)
+
+	// сохраняем файл
+	_, err := saveToDisk(file, fullSrcPath)
+	if err != nil {
+		return nil, ErrSaveToDiskFailed
+	}
+
+	// определяем папку загрузки превью
+	uploadPreviewDir := MakeUploadDirname(date, mediaType, "preview")
+
+	// создаем промежуточные директории для превью
+	if err := os.MkdirAll(uploadPreviewDir, 0o755); err != nil {
+		return nil, ErrCreateUploadPreviewDir
+	}
+
+	// определяем полный путь сохранения превью файла
+	fullPreviewPath := filepath.Join(uploadPreviewDir, fileName)
+
+	//TODO convert video to webp
+
+	// запись данных медиа в БД
+	calendarMedia := NewMedia(date, fullSrcPath, fullPreviewPath, mediaType)
+	dayId := calendarMedia.DayId
+
+	// если запись существует, то будем ее обновлять
+	existedMedia, _ := service.repo.GetByDayId2Type(ctx, dayId, mediaType)
 	var resultMediaId int
 	if existedMedia == nil {
 		// запись в БД

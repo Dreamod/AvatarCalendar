@@ -1,0 +1,5 @@
+.git
+*.md
+.idea
+assets
+postgres-data

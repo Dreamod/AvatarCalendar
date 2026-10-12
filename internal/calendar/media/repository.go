@@ -28,10 +28,8 @@ func (repo *Repository) Create(ctx context.Context, media *Media) (*Media, error
 // GetByDayId получает медиа файлы по ID дня
 func (repo *Repository) GetByDayId(ctx context.Context, dayId string) []Media {
 	var medias []Media
-	repo.DataBase.WithContext(ctx).
-		Table("media").
+	repo.DataBase.DB.WithContext(ctx).
 		Where("day_id = ?", dayId).
-		Where("deleted_at IS NULL").
 		Scan(&medias)
 	return medias
 }
@@ -39,11 +37,9 @@ func (repo *Repository) GetByDayId(ctx context.Context, dayId string) []Media {
 // GetByDayId2Type получает медиа файл по ID дня и типу
 func (repo *Repository) GetByDayId2Type(ctx context.Context, dayId string, mediaType string) (*Media, error) {
 	var media Media
-	result := repo.DataBase.WithContext(ctx).
-		Table("media").
+	result := repo.DataBase.DB.WithContext(ctx).
 		Where("day_id = ?", dayId).
 		Where("type = ?", mediaType).
-		Where("deleted_at IS NULL").
 		First(&media)
 	if result.Error != nil {
 		return nil, result.Error
@@ -51,8 +47,9 @@ func (repo *Repository) GetByDayId2Type(ctx context.Context, dayId string, media
 	return &media, nil
 }
 
+// Update обновляет запись в БД
 func (repo *Repository) Update(ctx context.Context, media *Media) (*Media, error) {
-	result := repo.DataBase.DB.Clauses(clause.Returning{}).Updates(media)
+	result := repo.DataBase.DB.WithContext(ctx).Clauses(clause.Returning{}).Updates(media)
 	if result.Error != nil {
 		return nil, result.Error
 	}

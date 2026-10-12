@@ -1,10 +1,8 @@
 package configs
 
 import (
-	"log"
+	"fmt"
 	"os"
-
-	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -20,23 +18,54 @@ type AuthConfig struct {
 	Secret string
 }
 
-type EmailConfig struct {
-	Email    string
-	Password string
-	Address  string
+type EnvConfig struct {
+	DBHost     string
+	DBPort     string
+	DBUser     string
+	DBPassword string
+	DBName     string
+	AppPort    string
+	AssetsDir  string
+}
+
+func loadEnv() *EnvConfig {
+	return &EnvConfig{
+		DBHost:     getEnv("DB_HOST", "localhost"),
+		DBPort:     getEnv("DB_PORT", "5432"),
+		DBUser:     getEnv("DB_USER", "avatarCalendar"),
+		DBPassword: getEnv("DB_PASSWORD", ""),
+		DBName:     getEnv("DB_NAME", "avatarCalendar"),
+		AppPort:    getEnv("APP_PORT", "8080"),
+		AssetsDir:  getEnv("ASSETS_DIR", "./assets"),
+	}
 }
 
 func LoadConfig() *Config {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Panicln("Error loading .env file, using default config")
-	}
+	env := loadEnv()
 	return &Config{
 		Db: DbConfig{
-			Dsn: os.Getenv("DB_DSN"),
+			Dsn: makeDSN(env),
 		},
 		Auth: AuthConfig{
-			Secret: os.Getenv("TOKEN"),
+			Secret: getEnv("TOKEN", ""),
 		},
 	}
+}
+
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func makeDSN(env *EnvConfig) string {
+	return fmt.Sprintf(
+		"host=%s user=%s password=%s dbname=%s port=%s",
+		env.DBHost,
+		env.DBUser,
+		env.DBPassword,
+		env.DBName,
+		env.DBPort,
+	)
 }

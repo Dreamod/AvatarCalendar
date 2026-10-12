@@ -2,7 +2,6 @@ package media
 
 import (
 	string2 "aiCalendarApp/pkg/string"
-	"database/sql/driver"
 	"time"
 
 	"gorm.io/gorm"
@@ -13,27 +12,11 @@ type Media struct {
 	Id      int    `json:"id"`
 	Src     string `json:"src"`
 	Preview string `json:"preview"`
-	Type    Type   `json:"type:status"`
+	Type    string `json:"type:status"`
 	DayId   string `json:"day_id" gorm:"index"`
 }
 
-type Type string
-
-const (
-	Image Type = "image"
-	Video Type = "video"
-)
-
-func (p *Type) Scan(value interface{}) error {
-	*p = Type(value.(byte))
-	return nil
-}
-
-func (s Type) Value() (driver.Value, error) {
-	return string(s), nil
-}
-
-func NewMedia(date time.Time, src string, preview string, mediaType Type) *Media {
+func NewMedia(date time.Time, src string, preview string, mediaType string) *Media {
 	media := &Media{
 		Src:     src,
 		Preview: preview,
